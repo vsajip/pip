@@ -306,31 +306,58 @@ class WheelBuilder(object):
         """Build one wheel."""
 
         if _in_zip:
-            prevdir = os.getcwd()
             try:
                 #import pdb; pdb.set_trace()
+                from distutils import log
+                from distutils.core import Extension
                 from wheel.bdist_wheel import bdist_wheel
                 from setuptools import Distribution
+                from pip.vendor.distlib.database import make_dist
+                from pip.vendor.distlib.util import get_package_data
+                dist = make_dist(req.name, req.installed_version)
+                data = get_package_data(dist)
                 kwargs = {
-                    'name': req.name,
-                    'version': req.installed_version,
+                    'name': dist.name,
+                    'version': dist.version,
                 }
-                dist = Distribution(kwargs)
+                source = data.get('source', {})
+                if source:
+                    kwargs['py_modules'] = [str(s) for s in source.get('modules', [])]
+                    kwargs['packages'] = [str(s) for s in source.get('packages', [])]
+                    kwargs['libraries'] = llist = []
+                    kwargs['ext_modules'] = elist = []
+                    libs = data.get('libraries', [])
+                    for name, info in libs:
+                        name = str(name)
+                        info['sources'] = [os.path.join(req.source_dir, str(s)) for s in info['sources']]
+                        info['include_dirs'] = [os.path.join(req.source_dir, str(s)) for s in info['include_dirs']]
+                    llist.append((name, info))
+                    exts = data.get('extensions', {})
+                    for info in exts.values():
+                        info['name'] = str(info['name'])
+                        info['sources'] = [os.path.join(req.source_dir, str(s)) for s in info['sources']]
+                        info['include_dirs'] = [os.path.join(req.source_dir, str(s)) for s in info['include_dirs']]
+                        elist.append(Extension(**info))
 
+                dist = Distribution(kwargs)
+                #log.set_verbosity(dist.verbose)
+                dist.src_root = req.source_dir
+                dist.script_name = os.path.join(req.source_dir, 'setup.py')
                 cmd = dist.get_command_obj('build')
                 cmd.initialize_options()
                 cmd.build_base = os.path.join(req.source_dir, cmd.build_base)
 
                 cmd = bdist_wheel(dist)
+                cmd.dist_dir = self.wheel_dir
                 cmd.finalize_options()
-                import pdb; pdb.set_trace()
+                #import pdb; pdb.set_trace()
                 cmd.run()
                 return True
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 import pdb; pdb.set_trace()
                 return False
-            finally:
-                os.chdir(prevdir)
         else:
             base_args = [
                 sys.executable, '-c',
@@ -351,9 +378,9 @@ class WheelBuilder(object):
     def build(self):
         """Build wheels."""
 
-        if _in_zip:
-            logger.notify('Building wheels from pip in a zip is not supported, sorry.')
-            return
+        #if _in_zip:
+        #    logger.notify('Building wheels from pip in a zip is not supported, sorry.')
+        #    return
         #unpack and constructs req set
         self.requirement_set.prepare_files(self.finder)
 
