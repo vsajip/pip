@@ -1,7 +1,7 @@
 """
 Support for installing and building the "wheel" binary package format.
 """
-from __future__ import with_statement
+from __future__ import with_statement, absolute_import
 
 import csv
 import functools
@@ -22,6 +22,18 @@ wheel_ext = '.whl'
 # don't use pkg_resources.Requirement.parse, to avoid the override in distribute,
 # that converts 'setuptools' to 'distribute'.
 setuptools_requirement = list(pkg_resources.parse_requirements("setuptools>=0.8"))[0]
+
+def _check_for_zip():
+    import zipimport
+    global _in_zip
+    try:
+        _in_zip = isinstance(__loader__, zipimport.zipimporter)
+    except NameError:
+        # __loader__ not defined, so not in zip
+        _in_zip = False
+
+_check_for_zip()
+del _check_for_zip
 
 def wheel_setuptools_support():
     """
@@ -293,21 +305,36 @@ class WheelBuilder(object):
     def _build_one(self, req):
         """Build one wheel."""
 
-        base_args = [
-            sys.executable, '-c',
-            "import setuptools;__file__=%r;"\
-            "exec(compile(open(__file__).read().replace('\\r\\n', '\\n'), __file__, 'exec'))" % req.setup_py] + \
-            list(self.global_options)
+        if _in_zip:
+            raise NotImplementedError('Running \'pip wheel\' from a zip is not '
+                                      'supported.')
+            try:
+                import pdb; pdb.set_trace()
+                from wheel.bdist_wheel import bdist_wheel
+                from setuptools import Distribution
+                dist = Distribution()
+                cmd = bdist_wheel(dist)
+                cmd.finalize_options()
+                cmd.run()
+                return True
+            except:
+                return False
+        else:
+            base_args = [
+                sys.executable, '-c',
+                "import setuptools;__file__=%r;"\
+                "exec(compile(open(__file__).read().replace('\\r\\n', '\\n'), __file__, 'exec'))" % req.setup_py] + \
+                list(self.global_options)
 
-        logger.notify('Running setup.py bdist_wheel for %s' % req.name)
-        logger.notify('Destination directory: %s' % self.wheel_dir)
-        wheel_args = base_args + ['bdist_wheel', '-d', self.wheel_dir] + self.build_options
-        try:
-            call_subprocess(wheel_args, cwd=req.source_dir, show_stdout=False)
-            return True
-        except:
-            logger.error('Failed building wheel for %s' % req.name)
-            return False
+            logger.notify('Running setup.py bdist_wheel for %s' % req.name)
+            logger.notify('Destination directory: %s' % self.wheel_dir)
+            wheel_args = base_args + ['bdist_wheel', '-d', self.wheel_dir] + self.build_options
+            try:
+                call_subprocess(wheel_args, cwd=req.source_dir, show_stdout=False)
+                return True
+            except:
+                logger.error('Failed building wheel for %s' % req.name)
+                return False
 
     def build(self):
         """Build wheels."""

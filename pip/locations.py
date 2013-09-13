@@ -14,15 +14,19 @@ default_cert_path = os.path.join(os.path.dirname(__file__), 'cacert.pem')
 def _check_for_zip():
     import zipimport
     global default_cert_path
-    if isinstance(__loader__, zipimport.zipimporter):
-        # running from a zip file. Save data to a handy location.
-        data = __loader__.get_data(default_cert_path)
-        destdir = os.path.expanduser('~/.pip')
-        if not os.path.isdir(destdir):
-            os.mkdir(destdir)
-        default_cert_path = os.path.join(destdir, 'cacert.pem')
-        with open(default_cert_path, 'wb') as f:
-            f.write(data)
+    try:
+        if isinstance(__loader__, zipimport.zipimporter):
+            # running from a zip file. Save data to a handy location.
+            data = __loader__.get_data(default_cert_path)
+            destdir = os.path.expanduser('~/.pip')
+            if not os.path.isdir(destdir):
+                os.mkdir(destdir)
+            default_cert_path = os.path.join(destdir, 'cacert.pem')
+            with open(default_cert_path, 'wb') as f:
+                f.write(data)
+    except NameError:
+        # __loader__ not defined, so not in zip
+        pass
 
 _check_for_zip()
 del _check_for_zip
