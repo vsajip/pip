@@ -29,7 +29,12 @@ def wheel_setuptools_support():
     """
     fulfilled = False
     try:
-        installed_setuptools = pkg_resources.get_distribution('setuptools')
+        try:
+            # Can't see why this wouldn't work, but ...
+            import setuptools
+            installed_setuptools = setuptools.__version__
+        except ImportError:
+            installed_setuptools = pkg_resources.get_distribution('setuptools')
         if installed_setuptools in setuptools_requirement:
             fulfilled = True
     except pkg_resources.DistributionNotFound:

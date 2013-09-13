@@ -217,15 +217,6 @@ class ConfigOptionParser(CustomOptionParser):
         self.exit(2, "%s\n" % msg)
 
 
-try:
-    pip_dist = pkg_resources.get_distribution('pip')
-    version = '%s from %s (python %s)' % (
-        pip_dist, pip_dist.location, sys.version[:3])
-except pkg_resources.DistributionNotFound:
-    # when running pip.py without installing
-    version = None
-
-
 def create_main_parser():
     parser_kw = {
         'usage': '\n%prog <command> [options]',
@@ -240,6 +231,9 @@ def create_main_parser():
     parser.disable_interspersed_args()
 
     # having a default version action just causes trouble
+    from pip import __version__ as pip_ver, __file__ as pip_loc
+    pip_loc = os.path.dirname(os.path.dirname(pip_loc))
+    version = '%s from %s (python %s)' % (pip_ver, pip_loc, sys.version[:3])
     parser.version = version
 
     for opt in standard_options:
