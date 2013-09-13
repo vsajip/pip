@@ -306,19 +306,31 @@ class WheelBuilder(object):
         """Build one wheel."""
 
         if _in_zip:
-            raise NotImplementedError('Running \'pip wheel\' from a zip is not '
-                                      'supported.')
+            prevdir = os.getcwd()
             try:
-                import pdb; pdb.set_trace()
+                #import pdb; pdb.set_trace()
                 from wheel.bdist_wheel import bdist_wheel
                 from setuptools import Distribution
-                dist = Distribution()
+                kwargs = {
+                    'name': req.name,
+                    'version': req.installed_version,
+                }
+                dist = Distribution(kwargs)
+
+                cmd = dist.get_command_obj('build')
+                cmd.initialize_options()
+                cmd.build_base = os.path.join(req.source_dir, cmd.build_base)
+
                 cmd = bdist_wheel(dist)
                 cmd.finalize_options()
+                import pdb; pdb.set_trace()
                 cmd.run()
                 return True
-            except:
+            except Exception as e:
+                import pdb; pdb.set_trace()
                 return False
+            finally:
+                os.chdir(prevdir)
         else:
             base_args = [
                 sys.executable, '-c',
@@ -339,6 +351,9 @@ class WheelBuilder(object):
     def build(self):
         """Build wheels."""
 
+        if _in_zip:
+            logger.notify('Building wheels from pip in a zip is not supported, sorry.')
+            return
         #unpack and constructs req set
         self.requirement_set.prepare_files(self.finder)
 
