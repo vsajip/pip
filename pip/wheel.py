@@ -331,7 +331,7 @@ class WheelBuilder(object):
                         name = str(name)
                         info['sources'] = [os.path.join(req.source_dir, str(s)) for s in info['sources']]
                         info['include_dirs'] = [os.path.join(req.source_dir, str(s)) for s in info['include_dirs']]
-                    llist.append((name, info))
+                        llist.append((name, info))
                     exts = data.get('extensions', {})
                     for info in exts.values():
                         info['name'] = str(info['name'])
@@ -340,12 +340,18 @@ class WheelBuilder(object):
                         elist.append(Extension(**info))
 
                 dist = Distribution(kwargs)
-                #log.set_verbosity(dist.verbose)
+                log.set_verbosity(dist.verbose)
                 dist.src_root = req.source_dir
                 dist.script_name = os.path.join(req.source_dir, 'setup.py')
                 cmd = dist.get_command_obj('build')
                 cmd.initialize_options()
                 cmd.build_base = os.path.join(req.source_dir, cmd.build_base)
+
+                #import pdb; pdb.set_trace()
+                cmd = dist.get_command_obj('egg_info')
+                cmd.egg_base = req.source_dir
+                cmd.ensure_finalized()
+                cmd.run()
 
                 cmd = bdist_wheel(dist)
                 cmd.dist_dir = self.wheel_dir
